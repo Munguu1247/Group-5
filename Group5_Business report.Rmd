@@ -1,0 +1,504 @@
+---
+title: "Group 5 - Park access and spending"
+author: "***Mungunchimeg Batbayar (s4662982) Tsetsgee Amarbayasgalan (s4661830)***" 
+output: html_document
+---
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+Install the packages:
+
+```{r}
+#install.packages("tidyverse") 
+library(tidyverse)
+
+#install.packages("knitr")
+library(knitr)
+
+#install.packages("skimr")
+library(skimr)
+
+#install.packages("modeldata")
+library(modeldata)
+
+#install.packages("tidymodels")
+library(tidymodels)
+
+#install.packages("randomForest")
+library(randomForest)
+```
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+# EXECUTIVE SUMMARY  
+
+The Trust for Public Land's (TPL) annual parks scores index has revealed that there is a significant park access discrepancy between the neighbourhoods of colour and low- and high-income communities in the United States (Lakhani, 2020). As such, this report intends to analyse park access to the given dataset which was conducted among the American major cities based on the total point of rank, park size, spending per resident amount, and amenities but also attempts to provide some recommendations from our perspective.
+    
+It is important to note that, given the dataset has 28 variables and 713 observations, this report has chosen city and rank from the dataset as our output variables to implement the predictive analysis. Regression and Classification modelling methods are used for predictive analytics in this report. Furthermore, the city is considered to be a character variable thus we'll utilise the linear modelling approach. On the other hand, the rank variable is numerical, so we use the Random Forest modelling technique to do analyse.  According to Porras, A linear regression model is the statistical analysing method that analyses the connection between a response variable (often called y) and one or more factors, as well as their interactions (often called x or explanatory variables). Random Forests is a flexible machine learning method that may be used for both regression and classification tasks (Ho, 1995).  
+
+Additionally, Volenec et al. (2021) note that during the pandemic, park usage was higher relative to previous years from mid-March to early April 2020, and park visitation increased dramatically after the stay-at-home requirement was implemented. In the pandemic-fighting effort, cities also mobilized their green spaces, utilising them to distribute personal protective equipment (PPE), food, and even vaccinations (Patino & Poon, 2021).
+
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+# INTRODUCTION
+
+Larson et al. (2016) point out that, in urban areas, sustainable development efforts are frequently focused on identifying and managing factors that impact all aspects of health and well-being.  Moreover, spending time in green places has been demonstrated in several studies to reduce stress and promote physical and psychological well-being in both adults and children (Lakhani, 2020).  
+ 
+The Trust for Public Land (TPL) which is a U.S non-profit organization has been tracking green space availability across U.S metros since 2011, using the ParkScore index, which assesses how effectively communities are serving citizens' park needs based on the following metrics: park access, acreage, investment, amenities, and equity.  
+
+This assessment is based on the assumption that Americans should have park access within a 10-minute walk from home. According to the year analysis, around 100 million people, including 28 million children, do not reside within that distance in the United States (Chapman et al, 2021). Furthermore, TPL’s annual parks scores index has identified significant access discrepancies. For instance, in Washington, Minneapolis, and Saint Paul, Minnesota, 98 per cent of inhabitants are within a 10-minute walk of a park, compared to fewer than 50 % of those in Charlotte, North Carolina, Mesa, Arizona, and Oklahoma City. The equity score builds on this by comparing park acreage and access between neighbourhoods of colour, as well as low-and high-income regions (Chapman et al, 2021). The TPL's head of Strategy and Innovation Linda Hwang (2020) states that “We believe that this measure of equality will improve the index by highlighting inequities not just between cities but also across demographic groups inside cities”.  
+
+In addition, it is interesting to note that, even if you live within 10 minutes of a park or playground, that does not necessarily mean much if the park or playground is not well-maintained or well-designed (Surico, 2020).
+
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+# BUSINESS PROBLEM
+
+As mentioned in the introduction, visiting public parks has been increased dramatically in the USA during the pandemic. Unfortunately, the supply of the national park is scarce among the residents and investment in recreation is insufficient. 
+
+National Park Service acknowledges that there were 237 million visitors who spent $14.5 billion in national parks in 2020 (National Park Service 2021).
+
+
+```{r}
+year <- c('2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020')
+spending_billion <- c(14.7, 14.6, 15.7, 16.9, 18.4, 18.2, 20.2, 21.0, 14.5 )
+
+spending_stat <- data.frame(year, spending_billion)
+
+spending_stat %>%
+  ggplot(aes(x = year, y = spending_billion)) +
+  geom_boxplot( color = 'dark orange') +
+  theme_bw() +
+  geom_text(aes(label = spending_billion), fontface = "bold", size = 3.5, vjust = - 0.2) +
+  labs(x = '', y = "",  
+       title = 'Park visitor spending contributions in the USA (2012-2020)', caption = 'Figure 1')
+```
+
+
+According to Figure 1, the amount of spending was decreased by 30 per cent in 2020, however, spending was increased gradually between 2012 and 2019. In addition, national parks are a significant role in ensuring health and wellness.
+
+The report analyzes if an increase in spending amount on the park improves the rank of the park, additionally, which city has the best park can be predicted based on the data set.
+
+
+**Main Question:** Can we predict the rank of the particular city and which city has the best park in the USA?
+
+
+**_Sub-questions:_**
+
+  **1.** Can we predict the rank of the parks by knowing spending points and amenities points?
+
+  **2.** Can we predict which city has the best park in the USA?
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+# ABOUT THE DATASET 
+
+The dataset illustrates the rank of the totally 101 cities parks in the USA between 2012 and 2020. The rank is based on the point measurements which include five main categories:
+
+  1. Average size of the park
+  
+  2. Parkland as a percentage of the city area
+  
+  3. Distance to park which is a percentage of residents within a 10-minute walk to park
+  
+  4. Spending per resident (USD)
+  
+  5. Amenities which include basketball loops, playground, restroom, recreation and splash ground.
+  
+
+Moreover, the rank is created in numeric order which is rank 1 is the best. The points are normalized values which are higher points are better.
+
+
+## Load the dataset
+
+```{r}
+data_set <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-06-22/parks.csv')
+
+```
+
+
+## Preparing the dataset 
+
+First and foremost,  the cleaning and tidying of the data set is the most significant process for analysis. After loading the data set, the report makes a few adjustments to the dataset for improving the quality of analysis.
+
+
+#### ***1. Modification of the variables***
+
+We change the name of variables to enhance the clear meaning of the variables and remove some unnecessary variables from the dataset.
+
+Firstly, we change the names of variables and eliminate some needless variables :
+
+```{r}
+data_set1 <- data_set %>%
+  rename(park_size = med_park_size_data, park_size_points = med_park_size_points, 
+         size_in_city = park_pct_city_data, size_in_city_points = park_pct_city_points,
+         near_park = pct_near_park_data, near_park_points = pct_near_park_points, 
+         spending = spend_per_resident_data, spending_points = spend_per_resident_points,
+         total_percent = total_pct) 
+  
+data_set1 <- data_set1[, -c(12:23, 27, 28)]
+```
+
+
+
+#### ***2. Interval of varaibles***
+
+The report creates two new intervals to improve our results of the analysis. The reason for that is there are over seven hundred different numbers of spending and over hundred cities.
+
+We range the spending points into three categories which are high, medium and low:
+
+```{r}
+actual_data <- data_set1 %>%
+  mutate(spending_class = cut_number(spending_points, n = 3, labels = c("low", "med", "high")))
+```
+
+```{r}
+actual_data %>%
+  ggplot(aes(spending_class, spending_points)) +
+  geom_boxplot( fill = 'pink') +
+  theme_bw() +
+  coord_flip() +
+  labs(x = '', y = "spending points",  
+       title = 'Average points of the spending class', caption = 'Figure 2')
+```
+
+Spending classes present:
+
+   - Low class covers up to 10 points
+
+   - Med class covers between 10 and 20
+ 
+   - High class covers over 20 to 100 points.
+
+
+
+Similar to the spending points, we created the new variable which is to range the cities into three categories based on the total points.
+
+
+```{r}
+actual_data <- actual_data %>%
+  mutate(city_class = cut_number(total_points, n = 3, labels = c("low", "med", "high")))
+
+```
+
+City classes presents:
+
+  - Low-class cities cover up to 44 points 
+  
+  - Med class cities covers between 44 and 60
+  
+  - High class cities covers over 60 to 100 points.
+ 
+ 
+ 
+
+#### ***3. Transformation of varaibles***
+
+After the cleaning process, we check the data summary by skim function and converting the character variables to factor variables for increasing the result of the analysis:
+
+```{r}
+actual_data <- actual_data %>%
+  mutate_if(is.character, factor)
+
+skim(actual_data)
+```
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+# EXPLORATORY ANALYSIS
+
+In data wrangling, we explore the dataset deeply and investigate the relationship between variables.
+
+
+### How many cities are in the dataset? What is the duration of data?
+
+```{r}
+actual_data %>%
+  count(city) %>%
+  head(10) %>%
+  kable()
+```
+
+```{r}
+actual_data %>%
+  count(year) %>%
+  kable()
+```
+
+The outcomes show that 101 different cities are ranked by parking points between 2012 and 2020. According to the outcome, the number of cities was increased year to year.
+
+
+### What is the relation between the rank and the spending point or amenities points?
+
+Before the linear regression analysis, the relationship between particular variables has to check and confirmed by the preliminary process.
+
+The below plot was used to find out the relationship has among the variables, which are rank as X-axis and spending points as Y-axis. 
+
+```{r}
+actual_data %>%
+  ggplot(aes(rank, spending_points)) +
+  geom_point() +
+  geom_smooth(method = lm, se = FALSE) +
+  theme_bw() +
+  labs(x = 'rank', y = "spending points",  
+       title = 'Relationship between rank and spending', caption = 'Figure 3')
+
+```
+
+According to Figure 3, there is a positive relationship between the rank and spending points that if the park has been a higher amount of spending, the rank will be higher.
+
+
+The below plot was created to find out the relationship has among the variables, which the rank as X-axis and amenities points as Y-axis. 
+
+```{r}
+actual_data %>%
+  ggplot(aes(rank, amenities_points)) +
+  geom_point(color = 'dark grey') +
+  geom_smooth(method = lm, se = FALSE) +
+  theme_bw() +
+  labs(x = 'rank', y = "amenities points",  
+       title = 'Relationship between rank and amenities', caption = 'Figure 4')
+```
+
+Similarly, Figure 4 depicts a positive relationship between the rank and amenities points.
+
+We can see that Figures 3 and 4 show the same slopes with a positive relationship between the variables. The spending points and amenities points have the same connection to the rank of the park.
+
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+
+# PREDICTIVE ANALYSIS
+
+## **Model 1:** Predict rank of the park using Linear model
+
+In this section, we predict the rank of the park by regression modelling which is a numeric supervised modelling method.The Linear model will be processed in four steps:
+
+
+### ***Step 1: Split the dataset into Training and Testing datasets***
+
+
+```{r}
+data_split <- initial_split(actual_data)
+data_training <- training(data_split)
+data_test <- testing(data_split)
+```
+
+
+
+### ***Step 2: Pre-process the data***
+
+Pre-process is implemented 4 phases: 
+
+
+#### 2.1 Set the recipe and get the ingredients 
+
+According to the sub-question 1, we use three variables:
+
+  i. `rank` is our output variable
+  
+  ii. `spending_class` and `amenities_points` are our input variable (also known predictors)
+  
+
+```{r}
+data_recipe_lm <- recipe(rank ~ spending_class + amenities_points, data = data_training)
+
+summary(data_recipe_lm)
+```
+
+
+
+#### 2.2 Write the recipe steps
+
+In the second phase of pre-processing, we improve the data quality by using the `step_xxx` functions. 
+Detecting and removing the **outliers** is significant to modelling because it can be impacted to final outcome. In addition, we need to apply `step_corr()` for eliminating the correlated numeric variables in our data. 
+
+
+```{r}
+data_recipe1 <- data_recipe_lm %>%
+  step_center(all_numeric(), -all_outcomes()) %>% 
+  step_scale(all_numeric(), -all_outcomes()) %>% 
+  step_corr(all_numeric())
+```
+
+
+
+#### 2.3 Get ready with the prep
+
+```{r}
+data_prep1 <- prep(data_recipe1, data = data_training)
+
+```
+
+
+
+#### 2.4 Bake the recipe 
+
+```{r}
+data_bake1 <- bake(data_prep1, data_training)  
+```
+
+
+
+### ***Step 3: Build a model***
+
+We use the Regression modelling based on the output variable which is numeric variable.
+
+```{r}
+model1 <- lm(rank ~ spending_class + amenities_points, data = data_bake1, na.action = na.omit)
+
+summary(model1) 
+
+```
+
+
+
+### ***Step 4: Evaluate the model***
+
+The result of the linear model shows that P-value has *** which is very meaningful, the sum of Residuals equals 11.259 and the R-squared equals 0.2298. The model outcomes the rank of the park has a positive relationship with spending and amenities.
+
+
+-----------------------------------------------------------------------------------------------------
+
+## **Model 2:** Predict which city has the best park by Classification modelling
+
+Depending on the scope of our dataset, we predict which city has the best park in the USA. In this model, we use the same split training data created in Step 1 in Linear modelling.
+
+
+### ***Step 2: Pre-process the data***
+
+#### 2.1 Set the recipe & get the ingredients 
+
+According to the sub-question 2, we use two variables:
+
+  i. `city_class` is dependent (output) variable.
+  
+  ii. `rank` is independent (input) variable.
+
+
+```{r}
+data_recipe2 <- recipe(city_class ~ rank, data = data_training)
+```
+
+
+#### 2.2 Write the recipe steps 
+
+```{r}
+data_recipe2 <- data_recipe2 %>%
+  step_center(all_numeric(), -all_outcomes()) %>% 
+  step_scale(all_numeric(), -all_outcomes()) %>% 
+  step_corr(all_numeric())
+```
+
+
+#### 2.3 Get ready with the prep
+
+```{r}
+data_prep2 <- prep(data_recipe2, data = data_training)
+```
+
+
+#### 2.4 Bake the recipe 
+
+```{r}
+data_bake2 <- bake(data_prep2, data_training)
+
+summary(data_bake2)
+```
+
+
+### ***Step 3: Build a model***
+
+We use the Classification modelling depend on the dependent variable which is factor variable.
+
+```{r}
+rf1 <- randomForest(city_class ~ rank, data = data_bake2, na.action = na.omit)
+
+print(rf1)
+```
+
+
+### ***Step 4: Evaluate the model***
+
+The result of the randomForest function shows that the OOB estimate of error rate is 59.38% which is unable to predict which city has the best park depending on the dataset.
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+
+# CONCLUSION
+
+As highlighted before, the green spaces provide vital health services as well as environmental services; they are echogenic, reducing socioeconomic health inequalities, facilitating activity, and promoting better mental health and well-being. To enable local planners and policymakers to assess the need for improvement and identify particular areas where green space initiatives are necessary, it is critical to develop and deploy standardised methodologies for measuring green space and collecting consistent and comparable data across numerous cities (WHO Regional Office for Europe 2016).
+  
+  In summary, the report investigates the Park access and spending data and forecasts the two predictions based on the main business issue. The major issues are predicting the rank of the park and which city has the highest-ranked park in the USA. The research analyses the rank of the park using the Regression model and using the Classification model for forecasting the city that has the best park. As a result of the Regression modelling, spending and amenities are a significant influence on ranking the parks. On the contrary, predicting the city with the topmost park was not applied successfully depending on the dataset. 
+
+The report illustrates that the better-ranked parks have adequate amenities and recreation than where it is located.
+	
+
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+# RECOMMENDATIONS
+
+Braubach et al. (2017) note that cities that build and maintain well-connected, attractive green spaces are likely to have healthier, happier, and more productive citizens with fewer demands for health services. As such, it is recommended that:
+
+  1. Increasing the sufficiency of parkland
+  
+  2. Improving the amenities of the parks
+  
+  3. Attracting the visitors to the parks
+  
+  4. Increasing the research on the park
+  
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+# REFERENCE
+
+Chapman, R, Foderaro L, Hwang L, Lee B, Muqueeth S, Sargent S, Shane B 2021, Parks and an equitable recovery A trust for Public Land special report, Trust for Public Land, viewed 1 April 2022, [Click here](https://www.tpl.org/parks-and-an-equitable-recovery-parkscore-report)
+
+  
+ 
+Lakhani, N 2020, Millions of Americans lack access to quality parks, report reveals, The Guardian, viewed 1 April 2022, [Click here](https://www.theguardian.com/environment/2020/may/20/park-inequality-access-coronavirus-wellbeing)
+
+  
+
+Larson, L, Jennings, V, Cloutier, S 2016, Public Parks and Wellbeing in Urban Areas of the United States, Plos One, viewed 1 April 2022,[Click here](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0153211)
+
+  
+
+National Park Service 2021, National Park Visitor Spending Contributed $28.6 Billion to U.S. Economy in 2020, National  Park Service, viewed 1 April 2022, [Click here](https://www.nps.gov/orgs/1207/vse2020.htm)
+
+  
+
+Patino, M, Poon, L 2021, The Inequality of American parks, Bloomberg City Lab, viewed 2 April 2022, [Click here](https://www.bloomberg.com/news/articles/2021-05-27/the-cities-where-people-of-color-can-walk-to-a-park)
+
+ 
+
+Porras, M 2018, Linear regression in R tutorial, DataCamp, viewed 3 April 2022, [Click here](https://www.datacamp.com/community/tutorials/linear-regression-R)
+
+  
+
+Surico, J 2020, The Power of Parks in a Pandemic, Bloomberg City Lab, viewed 2 April 2022, [Click here](https://www.bloomberg.com/news/articles/2020-04-09/in-a-pandemic-the-parks-are-keeping-us-alive)
+
+  
+
+Volenec, ZM, Abraham, JO, Becker, AD, Dobson, AP 2021, Public parks and the pandemic: How Park usage has been affected by Covid-19 policies, Plos one, viewed 2 April 2022, [Click here](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0251799)
+
+  
+
+World Health Organization 2016, Urban green spaces and health, WHO, viewed 1 April 2022, [Click here](https://www.euro.who.int/__data/assets/pdf_file/0005/321971/Urban-green-spaces-and-health-review-evidence.pdf)
+
+  
+
+
